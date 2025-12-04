@@ -14,8 +14,9 @@ interface WebSocketContextType {
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined)
 
 export function WebSocketProvider({ children }: { children: React.ReactNode }) {
+  const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || "/?XTransformPort=3003"
   const { isConnected, lastMessage, subscribe, unsubscribe } = useWebSocket({
-    url: "/?XTransformPort=3003",
+    url: WS_URL,
   })
   
   const [lastUpdate, setLastUpdate] = useState<any>(null)

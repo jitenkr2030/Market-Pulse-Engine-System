@@ -1,0 +1,1 @@
+{"version":2,"framework":"nextjs","buildCommand":"npm run build","installCommand":"npm install","env":{"NEXT_PUBLIC_WEBSOCKET_URL":""}}

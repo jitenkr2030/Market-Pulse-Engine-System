@@ -315,6 +315,21 @@ npm run build
 3. Deploy WebSocket service separately
 4. Configure reverse proxy and load balancing
 
+### Vercel Deployment
+1. Link or import this repository in Vercel.
+2. Ensure a `vercel.json` exists at the root (already added) with `buildCommand` set to "npm run build" and `framework` set to "nextjs".
+3. In Vercel Project Settings -> Environment Variables, add:
+   - `NEXT_PUBLIC_BASE_URL` = `https://<your-vercel-domain>` (e.g., `https://market-pulse-engine.vercel.app`)
+   - `NEXT_PUBLIC_WEBSOCKET_URL` = `https://<your-websocket-service-domain>` (or `wss://` if required)
+   - `DATABASE_URL` = your production database URL (Postgres/MySQL/Neon/PlanetScale, etc.)
+4. Trigger a production deploy and wait for build completion.
+5. Verify the app loads and API routes respond (e.g., `/api/...`).
+6. Deploy the `mini-services/websocket-service` separately on a platform that supports persistent WebSockets (Railway, Fly.io, Render, etc.).
+7. Set `CORS_ORIGIN` for the websocket-service to your Vercel domain (e.g., `https://market-pulse-engine.vercel.app`) and confirm `/health` returns status "healthy".
+8. Update any custom domain in Vercel, redeploy if needed, and re-verify WebSocket connectivity from the frontend.
+
+Note: The frontend reads `NEXT_PUBLIC_WEBSOCKET_URL` for WebSocket connections and `NEXT_PUBLIC_BASE_URL` for server-side fetches to internal API routes. In production, both must be set to the correct domains.
+
 ### Docker Support
 The application is containerization-ready with:
 - Multi-stage Docker builds
