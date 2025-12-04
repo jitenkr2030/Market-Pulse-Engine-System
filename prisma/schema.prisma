@@ -1,0 +1,449 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  password      String?
+  
+  // NextAuth.js accounts and sessions
+  accounts      Account[]
+  sessions      Session[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // User preferences and settings
+  dashboardPreferences DashboardPreference?
+  
+  // Subscription and billing
+  subscription        Subscription?
+  usage               Usage?
+  
+  // User's saved alerts and watchlists
+  alerts               Alert[]
+  watchlists           Watchlist[]
+}
+
+// NextAuth.js models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model DashboardPreference {
+  id       String @id @default(cuid())
+  userId   String @unique
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Layout preferences
+  pulseLayout      Json // Configuration for pulse component layout
+  timeFrame        String // Default timeframe (1m, 5m, 15m, 1h, 4h, 1d)
+  theme            String // light, dark, auto
+  refreshInterval  Int    // Data refresh interval in seconds
+  
+  // Onboarding
+  onboardingCompleted Boolean @default(false)
+  onboardingStep    Int     @default(0)
+  
+  // Notification preferences
+  notificationPreferences Json // Email, push, alert settings
+  
+  // Privacy preferences
+  privacyPreferences Json // Data retention and privacy settings
+  
+  // General preferences
+  generalPreferences Json // Auto-refresh and other general settings
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// Market and Asset models
+model Market {
+  id          String @id @default(cuid())
+  name        String @unique
+  symbol      String @unique
+  type        MarketType
+  description String?
+  
+  // Related data
+  sentimentPulses   SentimentPulse[]
+  volatilityPulses  VolatilityPulse[]
+  liquidityPulses   LiquidityPulse[]
+  correlationPairs  CorrelationPair[] @relation("Market1")
+  correlationPairs2 CorrelationPair[] @relation("Market2")
+  flowPulses        FlowPulse[]
+  riskPulses        RiskPulse[]
+  momentumPulses    MomentumPulse[]
+  marketPulses      MarketPulse[]
+  watchlistItems    WatchlistItem[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+enum MarketType {
+  EQUITY
+  BOND
+  COMMODITY
+  CURRENCY
+  CRYPTO
+  ETF
+  INDEX
+  FUTURES
+  OPTIONS
+}
+
+// Pulse Data Models
+model SentimentPulse {
+  id          String @id @default(cuid())
+  marketId    String
+  market      Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  
+  // Sentiment metrics
+  sps         Float // Sentiment Pulse Score (-100 to 100)
+  fearGreed   Float // Fear & Greed index (0-100)
+  newsScore   Float // News sentiment score
+  socialScore Float // Social media sentiment score
+  analystScore Float // Analyst sentiment score
+  
+  // Source breakdown
+  sources     Json  // Detailed sentiment source data
+  
+  timestamp   DateTime @default(now())
+  
+  @@index([marketId, timestamp])
+}
+
+model VolatilityPulse {
+  id          String @id @default(cuid())
+  marketId    String
+  market      Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  
+  // Volatility metrics
+  vpi         Float // Volatility Pressure Index (0-100)
+  impliedVol  Float // Implied volatility
+  realizedVol Float // Realized volatility
+  volCompression Float // Volatility compression indicator
+  volExpansion  Float // Volatility expansion indicator
+  
+  // Forecast data
+  forecast5m  Json  // 5-minute volatility forecast
+  forecast15m Json  // 15-minute volatility forecast
+  forecast30m Json  // 30-minute volatility forecast
+  
+  timestamp   DateTime @default(now())
+  
+  @@index([marketId, timestamp])
+}
+
+model LiquidityPulse {
+  id          String @id @default(cuid())
+  marketId    String
+  market      Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  
+  // Liquidity metrics
+  lms         Float // Liquidity Momentum Score (-100 to 100)
+  etfFlow     Float // ETF flow indicator
+  volume      Float // Trading volume
+  bidAskSpread Float // Bid-ask spread
+  depth       Float // Market depth
+  
+  // Flow data
+  inflows     Float // Capital inflows
+  outflows    Float // Capital outflows
+  netFlow     Float // Net capital flow
+  
+  timestamp   DateTime @default(now())
+  
+  @@index([marketId, timestamp])
+}
+
+model CorrelationPair {
+  id           String @id @default(cuid())
+  market1Id    String
+  market1      Market @relation("Market1", fields: [market1Id], references: [id], onDelete: Cascade)
+  market2Id    String
+  market2      Market @relation("Market2", fields: [market2Id], references: [id], onDelete: Cascade)
+  
+  // Correlation metrics
+  csm          Float // Correlation Stress Meter (0-100)
+  correlation  Float // Current correlation coefficient (-1 to 1)
+  correlationChange Float // Change in correlation
+  stability    Float // Correlation stability measure
+  
+  // Historical correlation data
+  historical   Json  // Historical correlation data points
+  
+  timestamp    DateTime @default(now())
+  
+  @@unique([market1Id, market2Id, timestamp])
+  @@index([market1Id, timestamp])
+  @@index([market2Id, timestamp])
+}
+
+model FlowPulse {
+  id          String @id @default(cuid())
+  marketId    String
+  market      Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  
+  // Flow metrics
+  fds         Float // Flow Direction Score (-100 to 100)
+  institutionalFlow Float // Institutional flow indicator
+  retailFlow  Float // Retail flow indicator
+  sectorRotation Float // Sector rotation indicator
+  
+  // Positioning data
+  longPositioning Float // Long positioning indicator
+  shortPositioning Float // Short positioning indicator
+  netPositioning Float // Net positioning
+  
+  timestamp   DateTime @default(now())
+  
+  @@index([marketId, timestamp])
+}
+
+model RiskPulse {
+  id          String @id @default(cuid())
+  marketId    String
+  market      Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  
+  // Risk metrics
+  rtm         Float // Risk Tension Meter (0-100)
+  leverage    Float // Leverage indicator
+  fundingStress Float // Funding stress indicator
+  volatilitySync Float // Volatility synchronization
+  liquidityConcentration Float // Liquidity concentration
+  
+  // Risk breakdown
+  riskFactors Json  // Detailed risk factor analysis
+  
+  timestamp   DateTime @default(now())
+  
+  @@index([marketId, timestamp])
+}
+
+model MomentumPulse {
+  id          String @id @default(cuid())
+  marketId    String
+  market      Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  
+  // Momentum metrics
+  mpm         Float // Momentum Probability Map (0-100)
+  trendStrength Float // Trend strength indicator
+  trendDirection Float // Trend direction (-1 to 1)
+  exhaustion  Float // Trend exhaustion indicator
+  
+  // Multi-timeframe data
+  mtfData     Json  // Multi-timeframe momentum data
+  
+  timestamp   DateTime @default(now())
+  
+  @@index([marketId, timestamp])
+}
+
+// Composite Market Pulse
+model MarketPulse {
+  id          String @id @default(cuid())
+  marketId    String
+  market      Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  
+  // Composite metrics
+  mpi         Float // Market Pulse Index (0-100)
+  pulseConvergence Float // Pulse convergence score
+  signalStrength Float // Signal strength indicator
+  
+  // Individual pulse contributions
+  sentimentWeight Float
+  volatilityWeight Float
+  liquidityWeight Float
+  correlationWeight Float
+  flowWeight Float
+  riskWeight Float
+  momentumWeight Float
+  
+  // Forecast data
+  forecast    Json  // Market forecast data
+  
+  timestamp   DateTime @default(now())
+  
+  @@index([marketId, timestamp])
+}
+
+// Alert and Watchlist models
+model Alert {
+  id          String @id @default(cuid())
+  userId      String
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name        String
+  description String?
+  
+  // Alert conditions
+  pulseType   PulseType
+  marketId    String?
+  operator    AlertOperator
+  threshold   Float
+  
+  // Alert status
+  isActive    Boolean @default(true)
+  lastTriggered DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum PulseType {
+  SENTIMENT
+  VOLATILITY
+  LIQUIDITY
+  CORRELATION
+  FLOW
+  RISK
+  MOMENTUM
+  MARKET_PULSE
+}
+
+enum AlertOperator {
+  GREATER_THAN
+  LESS_THAN
+  EQUALS
+  CHANGES_BY
+}
+
+model Watchlist {
+  id          String @id @default(cuid())
+  userId      String
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name        String
+  description String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Watchlist items
+  items       WatchlistItem[]
+}
+
+model WatchlistItem {
+  id           String @id @default(cuid())
+  watchlistId  String
+  watchlist    Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  marketId     String
+  market       Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  
+  addedAt      DateTime @default(now())
+  
+  @@unique([watchlistId, marketId])
+}
+
+// Subscription and Billing models
+model Subscription {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Subscription details
+  plan          SubscriptionPlan
+  status        SubscriptionStatus @default(ACTIVE)
+  amount        Float
+  currency      String   @default("USD")
+  billingCycle  BillingCycle @default(MONTHLY)
+  
+  // Dates
+  startDate     DateTime @default(now())
+  endDate       DateTime
+  trialUsed     Boolean  @default(false)
+  autoRenew     Boolean  @default(true)
+  
+  // Features and limits
+  features      Json     // JSON object with feature access details
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Usage {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Usage metrics
+  apiCalls      Int      @default(0)
+  aiAnalysis    Int      @default(0)
+  alerts        Int      @default(0)
+  dataExport    Int      @default(0)
+  websocketConn Int      @default(0)
+  
+  // Period and reset
+  period        String   @default("MONTHLY")
+  resetDate     DateTime
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  SUSPENDED
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
